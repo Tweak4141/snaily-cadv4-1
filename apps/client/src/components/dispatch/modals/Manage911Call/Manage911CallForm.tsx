@@ -1,6 +1,7 @@
+import * as React from "react";
 import { useRouter } from "next/router";
 import type { Post911CallsData, Put911CallByIdData } from "@snailycad/types/api";
-import { StatusValueType } from "@snailycad/types";
+import { Call911, StatusValueType } from "@snailycad/types";
 import { FormRow } from "components/form/FormRow";
 import { handleValidate } from "lib/handleValidate";
 import { CALL_911_SCHEMA } from "@snailycad/schemas";
@@ -20,6 +21,7 @@ import { useTranslations } from "next-intl";
 import { useCall911State } from "state/dispatch/call911State";
 import { useModal } from "state/modalState";
 import { AssignedUnitsTable } from "./AssignedUnitsTable";
+import { PersistentForm, usePersistentForm } from "hooks/shared/usePersistentForm";
 
 interface Props {
   call: Full911Call | null;
@@ -36,6 +38,7 @@ export function Manage911CallForm({ call, isDisabled, setShowAlert, handleClose 
   const { execute, state } = useFetch();
   const { setCalls, calls } = useCall911State();
   const { closeModal } = useModal();
+  const store = usePersistentForm<Partial<Call911>>({ name: "911-call" });
 
   const validate = handleValidate(CALL_911_SCHEMA);
   const isCitizen = router.pathname.includes("/citizen");
@@ -89,22 +92,30 @@ export function Manage911CallForm({ call, isDisabled, setShowAlert, handleClose 
   }
 
   const INITIAL_VALUES = {
-    name: call?.name ?? "",
-    location: call?.location ?? "",
-    postal: call?.postal ?? "",
-    description: call?.description ?? "",
-    descriptionData: dataToSlate(call),
-    departments: call?.departments?.map((dep) => ({ value: dep.id, label: dep.value.value })) ?? [],
-    divisions: call?.divisions?.map((dep) => ({ value: dep.id, label: dep.value.value })) ?? [],
-    situationCode: call?.situationCodeId ?? null,
-    type: call?.typeId ?? null,
-    assignedUnits: undefined,
+    name: store.state.name ?? call?.name ?? "",
+    location: store.state.location ?? call?.location ?? "",
+    postal: store.state.postal ?? call?.postal ?? "",
+    description: store.state.description ?? call?.description ?? "",
+    descriptionData: dataToSlate(store.state.descriptionData ? store.state : call),
+    departments:
+      (store.state.departments ?? call?.departments)?.map((dep) => ({
+        value: dep.id,
+        label: dep.value.value,
+      })) ?? [],
+    divisions:
+      (store.state.divisions ?? call?.divisions)?.map((dep) => ({
+        value: dep.id,
+        label: dep.value.value,
+      })) ?? [],
+    situationCode: store.state.situationCodeId ?? call?.situationCodeId ?? null,
+    type: store.state.typeId ?? call?.typeId ?? null,
   };
 
   return (
     <Formik validate={validate} onSubmit={onSubmit} initialValues={INITIAL_VALUES}>
       {({ handleChange, setFieldValue, values, errors }) => (
         <Form className="w-full h-full">
+          <PersistentForm store={store} />
           <FormField errorMessage={errors.name} label={common("name")}>
             <Input disabled={isDisabled} name="name" value={values.name} onChange={handleChange} />
           </FormField>
